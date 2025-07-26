@@ -8,7 +8,7 @@ pipeline
         {
             steps
             {
-                echo "This is build stage for test pipeline"
+                echo "This is build stage"
             }
         }
          stage ("Test")
