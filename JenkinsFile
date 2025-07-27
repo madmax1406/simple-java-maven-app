@@ -1,28 +1,94 @@
-pipeline
-{
-    agent Any
+pipeline {
 
-    stages
-    {
-        stage ("Build")
-        {
-            steps
+    agent {
+  label 'devserver'
+    }
+
+    tools {
+  maven 'mymaven'
+    }
+
+    parameters {
+        choice choices: ['Dev', 'Prod'], description: 'Select an Environment to proceed with deployment.', name: 'Environment'
+    }   
+
+
+    stages {
+
+    stage('Build') {
+          steps {
+            sh 'mvn clean package -DskipTests=true'
+        }
+    }
+        
+    stage('Test') {
+
+        parallel {
+
+            stage('Test-A')
             {
-                echo "This is build stage"
+                agent {label 'devserver'}
+                    steps{
+                        echo 'This is Test A'
+                        sh "mvn test"
+                    }
+            }
+
+            stage('Test-B')
+            {
+                agent {label 'devserver'}
+                    steps{
+                        echo 'This is Test B'
+                        sh "mvn test"
+                    }
             }
         }
-         stage ("Test")
-        {
-            steps
-            {
-                echo "This is Test stage"
-            }
-        } stage ("Deploy")
-        {
-            steps
-            {
-                echo "This is deploy stage"
+          
+        post {
+                success {
+                    dir("target/")
+                    {
+                    stash includes: '*.jar', name: 'maven-build'
+                    }
             }
         }
     }
+    stage('Deploy_Dev') {
+        when {
+            expression {params.Environment == 'Dev'}
+            beforeAgent true
+        }
+          steps {
+            dir ("${env.WORKSPACE}/artifacts/dev")
+            {
+                unstash "maven-build"
+                sh """ 
+                    java -jar server-1.0-SNAPSHOT.jar
+                """
+            }
+            
+        }
+    }
+        stage('Deploy_Prod') {
+        when {
+            expression {params.Environment == 'Prod'}
+            beforeAgent true
+        }
+         agent { label 'prodserver' }
+          steps {
+            timeout(time:5, unit:'DAYS')
+            {
+                input message: 'Deployment approved?'
+            }
+            dir ("${env.WORKSPACE}/artifacts/prod")
+            {
+                unstash "maven-build"
+                 sh """ 
+                    java -jar server-1.0-SNAPSHOT.jar
+                """
+            }
+           
+        }
+    }
+}
 }
