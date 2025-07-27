@@ -84,7 +84,7 @@ pipeline {
             {
                 unstash "maven-build"
                  sh """ 
-                    java -jar server-1.0-SNAPSHOT.jar
+                    java -jar my-app-1.0-SNAPSHOT.jar
                 """
             }
            
